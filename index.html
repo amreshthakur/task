@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Work Journal - Save to Device & View Online</title>
+    <title>Work Journal - Real Time Daily Dates</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -14,17 +14,18 @@
         }
         
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
             color: #333;
             line-height: 1.6;
-            padding: 20px;
             min-height: 100vh;
+        }
+        
+        body.modal-open {
+            overflow: hidden;
         }
         
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            background-color: white;
             border-radius: 16px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             overflow: hidden;
@@ -56,18 +57,6 @@
             margin-bottom: 15px;
         }
         
-        .storage-notice {
-            background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            padding: 12px;
-            margin-top: 15px;
-            font-size: 0.9rem;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-            border-left: 4px solid #4fc3f7;
-        }
-        
         .app-container {
             display: flex;
             flex-direction: column;
@@ -75,7 +64,7 @@
             gap: 25px;
         }
         
-        @media (min-width: 992px) {
+        @media (min-width: 768px) {
             .app-container {
                 flex-direction: row;
             }
@@ -87,6 +76,11 @@
             border-radius: 12px;
             padding: 20px;
             border: 1px solid #e1e8f0;
+            min-height: 600px;
+        }
+        
+        .calendar-section.full-view {
+            flex: 2;
         }
         
         .notes-section {
@@ -148,6 +142,31 @@
             transform: scale(1.05);
         }
         
+        .date-toggle {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+            background-color: #e8eaf6;
+            border-radius: 8px;
+            padding: 5px;
+        }
+        
+        .date-toggle-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        
+        .date-toggle-btn.active {
+            background-color: #3949ab;
+            color: white;
+        }
+        
         .weekdays {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -162,11 +181,11 @@
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 5px;
+            gap: 8px;
         }
         
         .calendar-day {
-            height: 50px;
+            height: 80px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -177,12 +196,14 @@
             transition: all 0.2s;
             position: relative;
             border: 1px solid transparent;
-            padding: 4px;
+            padding: 8px;
+            overflow: hidden;
         }
         
         .calendar-day:hover {
             background-color: #e8eaf6;
             border-color: #3949ab;
+            transform: translateY(-2px);
         }
         
         .current-month {
@@ -209,12 +230,11 @@
         }
         
         .has-entries::after {
-            content: "✓";
+            content: "📝";
             position: absolute;
-            top: 3px;
-            right: 3px;
+            top: 5px;
+            right: 5px;
             font-size: 0.8rem;
-            font-weight: bold;
         }
         
         .selected-day {
@@ -222,419 +242,624 @@
             color: white;
             font-weight: 600;
             transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(57, 73, 171, 0.3);
         }
         
         .selected-day.has-entries::after {
             color: white;
         }
         
-        .day-number {
-            font-size: 0.9rem;
+        .primary-date {
+            font-size: 1.2rem;
             font-weight: bold;
+            margin-bottom: 4px;
         }
         
-        .day-status {
-            font-size: 0.6rem;
-            margin-top: 2px;
+        .secondary-date {
+            font-size: 0.75rem;
+            color: #666;
+            font-weight: 500;
+            text-align: center;
+            line-height: 1.2;
+        }
+        
+        .entry-count {
+            font-size: 0.65rem;
+            margin-top: 4px;
             font-weight: 600;
+            position: absolute;
+            bottom: 5px;
+            background-color: rgba(57, 73, 171, 0.1);
+            padding: 2px 6px;
+            border-radius: 10px;
         }
         
-        .notes-header {
+        /* All Entries Button */
+        .all-entries-btn {
+            margin-top: 20px;
+            width: 100%;
+            background: linear-gradient(90deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .all-entries-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 152, 0, 0.3);
+        }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        
+        .modal {
+            background-color: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+            transform: translateY(-30px);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+        
+        .modal-header {
+            background: linear-gradient(90deg, #1a237e 0%, #283593 100%);
+            color: white;
+            padding: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
         }
         
-        .note-date {
-            color: #3949ab;
-            font-size: 1.2rem;
-            margin-bottom: 15px;
+        .modal-title {
+            font-size: 1.5rem;
             font-weight: 600;
-            padding: 10px;
-            background-color: #e8eaf6;
-            border-radius: 8px;
-            text-align: center;
         }
         
-        /* File Management Buttons */
-        .file-management {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .file-btn {
-            padding: 10px 15px;
-            border-radius: 8px;
+        .modal-close {
+            background: none;
             border: none;
-            font-size: 0.9rem;
-            font-weight: 600;
+            color: white;
+            font-size: 1.5rem;
             cursor: pointer;
-            transition: all 0.3s;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
-            gap: 8px;
-            flex: 1;
-            min-width: 140px;
             justify-content: center;
+            transition: background-color 0.3s;
         }
         
-        .export-btn {
-            background-color: #4caf50;
-            color: white;
+        .modal-close:hover {
+            background-color: rgba(255, 255, 255, 0.2);
         }
         
-        .export-btn:hover {
-            background-color: #388e3c;
-            transform: translateY(-2px);
+        .modal-body {
+            padding: 20px;
+            max-height: 65vh;
+            overflow-y: auto;
         }
         
-        .import-btn {
-            background-color: #2196f3;
-            color: white;
-        }
-        
-        .import-btn:hover {
-            background-color: #1976d2;
-            transform: translateY(-2px);
-        }
-        
-        .backup-btn {
-            background-color: #ff9800;
-            color: white;
-        }
-        
-        .backup-btn:hover {
-            background-color: #f57c00;
-            transform: translateY(-2px);
-        }
-        
-        /* Add Work Button */
-        .add-work-btn-container {
-            text-align: center;
-            margin: 15px 0;
-        }
-        
-        .add-work-btn {
-            background: linear-gradient(90deg, #3949ab 0%, #283593 100%);
-            color: white;
-            border: none;
-            padding: 14px 30px;
+        .modal-date-info {
+            background-color: #f8fafc;
+            padding: 15px;
             border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 4px 15px rgba(57, 73, 171, 0.3);
+            margin-bottom: 20px;
+            border-left: 4px solid #3949ab;
         }
         
-        .add-work-btn:hover {
-            background: linear-gradient(90deg, #283593 0%, #1a237e 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(57, 73, 171, 0.4);
-        }
-        
-        /* Form Styles */
-        .entry-form {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            flex-grow: 1;
-            display: none;
-        }
-        
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        
-        .form-row {
-            display: flex;
-            gap: 10px;
-        }
-        
-        @media (max-width: 768px) {
-            .form-row {
-                flex-direction: column;
-                gap: 10px;
-            }
-        }
-        
-        .form-group label {
+        .modal-date-primary {
+            font-size: 1.4rem;
             font-weight: 600;
             color: #1a237e;
+            margin-bottom: 5px;
+        }
+        
+        .modal-date-secondary {
+            font-size: 1rem;
+            color: #666;
+        }
+        
+        .entries-list {
+            margin-bottom: 20px;
+        }
+        
+        .entries-title {
+            font-size: 1.2rem;
+            color: #1a237e;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e1e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .add-entry-btn {
+            background-color: #3949ab;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 0.95rem;
-        }
-        
-        .form-group label i {
-            color: #3949ab;
-        }
-        
-        input, textarea, select {
-            padding: 12px 15px;
-            border: 1px solid #e1e8f0;
-            border-radius: 6px;
-            font-size: 1rem;
+            gap: 8px;
             transition: all 0.3s;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: #3949ab;
-            box-shadow: 0 0 0 3px rgba(57, 73, 171, 0.2);
+        .add-entry-btn:hover {
+            background-color: #303f9f;
+            transform: translateY(-2px);
         }
         
-        .work-input {
-            flex: 1;
+        .entry-item {
+            background-color: #f8fafc;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4caf50;
+            position: relative;
         }
         
-        textarea {
-            min-height: 100px;
-            resize: vertical;
+        .entry-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
         }
         
-        .form-buttons {
+        .entry-type {
+            background-color: #3949ab;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .entry-time {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .entry-content {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        
+        .entry-actions {
             display: flex;
             gap: 10px;
-            margin-top: 15px;
-        }
-        
-        .form-btn {
-            padding: 12px 24px;
-            border-radius: 8px;
-            border: none;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            flex: 1;
-        }
-        
-        .save-btn {
-            background: linear-gradient(90deg, #43a047 0%, #2e7d32 100%);
-            color: white;
-        }
-        
-        .save-btn:hover {
-            background: linear-gradient(90deg, #2e7d32 0%, #1b5e20 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(46, 125, 50, 0.3);
-        }
-        
-        .cancel-btn {
-            background-color: #f5f5f5;
-            color: #757575;
-        }
-        
-        .cancel-btn:hover {
-            background-color: #e0e0e0;
-            transform: translateY(-2px);
-        }
-        
-        /* Sheet/Table View */
-        .sheet-container {
-            width: 100%;
-            overflow-x: auto;
-            flex-grow: 1;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
             margin-top: 10px;
         }
         
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 700px;
-        }
-        
-        .data-table thead {
-            background-color: #f5f5f5;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        
-        .data-table th {
-            padding: 12px 15px;
-            text-align: left;
-            font-weight: 600;
-            color: #1a237e;
-            border-bottom: 2px solid #e0e0e0;
-            white-space: nowrap;
-        }
-        
-        .data-table td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #f0f0f0;
-            vertical-align: top;
-        }
-        
-        .data-table tbody tr:hover {
-            background-color: #f9f9f9;
-        }
-        
-        .data-table tbody tr:last-child td {
-            border-bottom: none;
-        }
-        
-        .serial-no {
-            text-align: center;
-            font-weight: 600;
-            color: #3949ab;
-            width: 50px;
-        }
-        
-        .work-type-cell {
-            min-width: 120px;
-        }
-        
-        .work-details-cell {
-            min-width: 250px;
-            max-width: 350px;
-        }
-        
-        .target-cell {
-            min-width: 150px;
-        }
-        
-        .status-cell {
-            min-width: 100px;
-        }
-        
-        .goal-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        
-        .goal-achieved {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-        
-        .goal-not-achieved {
-            background-color: #ffebee;
-            color: #e53935;
-        }
-        
-        .goal-partial {
-            background-color: #fff8e1;
-            color: #ff9800;
-        }
-        
-        .type-badge {
-            display: inline-block;
-            padding: 4px 10px;
+        .entry-btn {
+            background: none;
+            border: none;
+            padding: 5px 10px;
             border-radius: 4px;
+            cursor: pointer;
             font-size: 0.85rem;
-            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.3s;
+        }
+        
+        .edit-btn {
             background-color: #e3f2fd;
             color: #1976d2;
         }
         
-        .no-data-row td {
+        .delete-btn {
+            background-color: #ffebee;
+            color: #d32f2f;
+        }
+        
+        .entry-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .no-entries {
             text-align: center;
-            padding: 40px;
-            color: #9e9e9e;
+            padding: 30px;
+            color: #999;
             font-style: italic;
         }
         
-        .delete-entry-btn {
-            background: none;
-            border: none;
-            color: #e53935;
+        /* All Entries Modal */
+        .all-entries-modal .modal-header {
+            background: linear-gradient(90deg, #ff9800 0%, #f57c00 100%);
+        }
+        
+        .all-entries-modal .modal {
+            max-width: 800px;
+        }
+        
+        .search-box {
+            margin-bottom: 20px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #ff9800;
+            box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+        }
+        
+        .filter-options {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            background-color: white;
+            border-radius: 20px;
             cursor: pointer;
-            padding: 5px 10px;
-            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        
+        .filter-btn.active {
+            background-color: #ff9800;
+            color: white;
+            border-color: #ff9800;
+        }
+        
+        .filter-btn:hover:not(.active) {
+            background-color: #f5f5f5;
+        }
+        
+        .all-entries-list {
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+        
+        .all-entry-item {
+            background-color: #f8fafc;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4caf50;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .all-entry-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .all-entry-date {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .all-entry-type {
+            background-color: #3949ab;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .all-entry-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .all-entry-preview {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.4;
+            display: -webkit-box;
+            /* -webkit-line-clamp: 2; */
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        /* Entry Form Modal */
+        .entry-form-modal .modal {
+            max-width: 600px;
+            max-height: 85vh;
+        }
+        
+        .entry-form-modal .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .entry-form-header {
+            background: linear-gradient(90deg, #4caf50 0%, #2e7d32 100%);
+        }
+        
+        .form-container {
+            padding: 20px;
+        }
+        
+        .form-date-info {
+            background-color: #e8f5e9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .form-date-primary {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2e7d32;
+            margin-bottom: 5px;
+        }
+        
+        .form-date-secondary {
+            font-size: 1rem;
+            color: #666;
+        }
+        
+        .form-title {
+            font-size: 1.4rem;
+            color: #1a237e;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+        
+        .form-select, .form-input, .form-textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .form-select:focus, .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #3949ab;
+            box-shadow: 0 0 0 3px rgba(57, 73, 171, 0.1);
+        }
+        
+        .form-textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e1e8f0;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
             transition: all 0.3s;
             font-size: 1rem;
         }
         
-        .delete-entry-btn:hover {
-            background-color: #ffebee;
+        .btn-primary {
+            background-color: #3949ab;
+            color: white;
         }
         
-        .empty-state {
-            text-align: center;
-            color: #718096;
-            padding: 40px 15px;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+        .btn-secondary {
+            background-color: #f0f0f0;
+            color: #333;
         }
         
-        .empty-state i {
-            font-size: 3rem;
+        .btn-success {
+            background-color: #4caf50;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: none;
+            max-width: 350px;
+        }
+        
+        .notification.success {
+            background-color: #4caf50;
+            border-left: 4px solid #2e7d32;
+        }
+        
+        .notification.error {
+            background-color: #f44336;
+            border-left: 4px solid #c62828;
+        }
+        
+        .notification.info {
+            background-color: #2196f3;
+            border-left: 4px solid #0d47a1;
+        }
+        
+        /* Nepali Date Display */
+        .nepali-date-display {
+            background-color: #fff3e0;
+            border-radius: 12px;
+            padding: 20px;
             margin-bottom: 15px;
-            color: #cbd5e0;
+            text-align: center;
+            border-left: 5px solid #ff9800;
+            box-shadow: 0 5px 20px rgba(255, 152, 0, 0.15);
+            position: relative;
+            overflow: hidden;
         }
         
-        .empty-state h3 {
-            font-size: 1.3rem;
-            margin-bottom: 10px;
-            color: #4a5568;
-        }
-        
-        .stats-section {
-            background-color: #f8fafc;
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 15px;
-            border: 1px solid #e1e8f0;
-        }
-        
-        .stats-title {
-            color: #1a237e;
-            font-size: 1.1rem;
+        .nepali-date-display h4 {
+            color: #e65100;
             margin-bottom: 12px;
+            font-size: 1.2rem;
             display: flex;
             align-items: center;
-            gap: 8px;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            justify-content: center;
             gap: 10px;
         }
         
-        .stat-box {
-            background-color: white;
-            padding: 12px;
+        .nepali-date-display .date-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .nepali-date-display .date-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.7);
             border-radius: 8px;
-            text-align: center;
-            border: 1px solid #e1e8f0;
+            border: 1px solid #ffcc80;
         }
         
-        .stat-value {
-            font-size: 1.5rem;
+        .nepali-date-display .date-label {
+            font-weight: 600;
+            color: #1a237e;
+            min-width: 100px;
+            text-align: right;
+            font-size: 1rem;
+        }
+        
+        .nepali-date-display .date-value {
             font-weight: 700;
-            color: #3949ab;
-            margin-bottom: 4px;
+            font-size: 1.3rem;
+            color: #bf360c;
+            text-align: left;
+            min-width: 200px;
         }
         
-        .stat-label {
-            color: #718096;
+        .nepali-date-display .english-date-value {
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: #1a237e;
+            text-align: left;
+            min-width: 200px;
+        }
+        
+        .nepali-date-display .update-time {
             font-size: 0.85rem;
+            color: #666;
+            margin-top: 10px;
+            font-style: italic;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .nepali-date-display .real-time-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #4caf50;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
         }
         
         .footer {
@@ -646,78 +871,104 @@
             background-color: #f8fafc;
         }
         
-        .footer a {
-            color: #3949ab;
-            text-decoration: none;
-        }
-        
-        .footer a:hover {
-            text-decoration: underline;
-        }
-        
-        .quick-stats {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        
-        .quick-stat {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.85rem;
-        }
-        
-        /* Storage Info */
-        .storage-info {
-            background-color: #e8eaf6;
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 10px;
-            font-size: 0.9rem;
-            color: #1a237e;
-        }
-        
         @media (max-width: 768px) {
             .app-container {
                 padding: 15px;
             }
             
-            .calendar-section, .notes-section {
+            .calendar-section {
                 padding: 15px;
             }
             
             .calendar-grid {
-                gap: 3px;
+                gap: 5px;
             }
             
             .calendar-day {
-                height: 45px;
-                font-size: 0.8rem;
+                height: 70px;
+                font-size: 0.9rem;
+            }
+            
+            .primary-date {
+                font-size: 1rem;
+            }
+            
+            .secondary-date {
+                font-size: 0.65rem;
             }
             
             h1 {
                 font-size: 1.8rem;
             }
             
-            .stats-grid {
-                grid-template-columns: 1fr;
+            .modal {
+                width: 95%;
+                max-height: 95vh;
             }
             
-            .day-status {
-                font-size: 0.55rem;
+            .modal-header {
+                padding: 15px;
             }
             
-            .data-table {
-                min-width: 600px;
+            .modal-body {
+                padding: 15px;
+                max-height: 75vh;
             }
             
-            .file-btn {
-                min-width: 120px;
-                padding: 8px 12px;
-                font-size: 0.85rem;
+            .entry-form-modal .modal-body {
+                max-height: 80vh;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .filter-options {
+                flex-direction: column;
+            }
+            
+            .filter-btn {
+                width: 100%;
+                text-align: center;
+            }
+            
+            .nepali-date-display {
+                padding: 15px;
+            }
+            
+            .nepali-date-display .date-container {
+                gap: 8px;
+            }
+            
+            .nepali-date-display .date-item {
+                flex-direction: column;
+                gap: 5px;
+                text-align: center;
+            }
+            
+            .nepali-date-display .date-label,
+            .nepali-date-display .date-value,
+            .nepali-date-display .english-date-value {
+                min-width: auto;
+                text-align: center;
+            }
+            
+            .nepali-date-display .date-value,
+            .nepali-date-display .english-date-value {
+                font-size: 1.1rem;
+            }
+            
+            .nepali-date-display .real-time-indicator {
+                position: relative;
+                top: auto;
+                right: auto;
+                margin-top: 10px;
+                justify-content: center;
             }
         }
     </style>
@@ -726,1069 +977,1417 @@
     <div class="container">
         <header>
             <div class="header-content">
-                <h1><i class="fas fa-database"></i> Work Journal - Save & View</h1>
-                <p class="subtitle">Data saves to your browser AND can be exported to device</p>
+                <h1><i class="fas fa-calendar-alt"></i> Work Journal - Daily Date Updates</h1>
+                <p class="subtitle">Track work activities with automatically updating Nepali (BS) and English (AD) dates</p>
+            </div>
+
+            <!-- Dynamic Date Display -->
+            <div class="nepali-date-display" id="nepali-date-display">
+                <span class="real-time-indicator">
+                    <i class="fas fa-sync-alt fa-spin"></i> LIVE
+                </span>
+                <h4><i class="fas fa-calendar-day"></i> Today's Dates</h4>
                 
-                <div class="storage-notice">
-                    <i class="fas fa-info-circle"></i> <strong>How it works:</strong> 
-                    Your work data is saved in your browser's database (IndexedDB) so you can view it anytime. 
-                    You can also export it as files to your device for backup or transfer.
+                <div class="date-container">
+                    <div class="date-item">
+                        <span class="date-label">Nepali (BS):</span>
+                        <span class="date-value" id="dynamicNepaliDate">Loading...</span>
+                    </div>
+                    <div class="date-item">
+                        <span class="date-label">English (AD):</span>
+                        <span class="english-date-value" id="dynamicEnglishDate">Loading...</span>
+                    </div>
+                </div>
+                
+                <div class="update-time" id="lastUpdateTime">
+                    <i class="far fa-clock"></i> Last updated: Just now
                 </div>
             </div>
         </header>
         
         <div class="app-container">
-            <div class="calendar-section">
+            <div class="calendar-section full-view">
                 <h2 class="section-title"><i class="far fa-calendar-alt"></i> Calendar</h2>
+                
+                <div class="date-toggle" id="date-toggle">
+                    <button class="date-toggle-btn active" id="english-date-btn">
+                        <i class="fas fa-globe"></i> English (AD)
+                    </button>
+                    <button class="date-toggle-btn" id="nepali-date-btn">
+                        <i class="fas fa-mountain"></i> Nepali (BS)
+                    </button>
+                </div>
                 
                 <div class="calendar-header">
                     <button class="nav-btn" id="prev-month" title="Previous month">
                         <i class="fas fa-chevron-left"></i>
                     </button>
-                    <div class="month-year" id="current-month-year">January 2023</div>
+                    <div class="month-year" id="current-month-year">Loading...</div>
                     <button class="nav-btn" id="next-month" title="Next month">
                         <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
                 
-                <div class="weekdays">
-                    <div>Sun</div>
-                    <div>Mon</div>
-                    <div>Tue</div>
-                    <div>Wed</div>
-                    <div>Thu</div>
-                    <div>Fri</div>
-                    <div>Sat</div>
+                <div class="weekdays" id="weekdays">
+                    <!-- Weekdays will be populated by JavaScript -->
                 </div>
                 
                 <div class="calendar-grid" id="calendar-grid">
-                    <!-- Calendar days will be generated here -->
-                </div>
-                
-                <div class="stats-section">
-                    <h3 class="stats-title"><i class="fas fa-chart-line"></i> Statistics</h3>
-                    <div class="stats-grid">
-                        <div class="stat-box">
-                            <div class="stat-value" id="total-days">0</div>
-                            <div class="stat-label">Days Logged</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-value" id="total-activities">0</div>
-                            <div class="stat-label">Total Activities</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-value" id="goals-achieved">0</div>
-                            <div class="stat-label">Goals Achieved</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-value" id="current-streak">0</div>
-                            <div class="stat-label">Day Streak</div>
-                        </div>
-                    </div>
-                    
-                    <div class="quick-stats" id="quick-stats">
-                        <!-- Quick stats will appear here -->
-                    </div>
-                    
-                    <div class="storage-info">
-                        <i class="fas fa-database"></i> 
-                        <strong>Storage:</strong> Data saved in browser database. Export to device for backup.
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="notes-section">
-                <h2 class="section-title"><i class="fas fa-clipboard-list"></i> Work Activities</h2>
                 
-                <div class="file-management">
-                    <button class="file-btn export-btn" id="export-btn">
-                        <i class="fas fa-file-export"></i> Export to Device
-                    </button>
-                    <button class="file-btn import-btn" id="import-btn">
-                        <i class="fas fa-file-import"></i> Import from Device
-                    </button>
-                    <button class="file-btn backup-btn" id="backup-btn">
-                        <i class="fas fa-history"></i> Restore Data
-                    </button>
-                </div>
-                
-                <div class="note-date" id="note-date">
-                    <span>Select a date from calendar</span>
-                </div>
-                
-                <div id="content-container">
-                    <!-- Initially empty -->
-                </div>
+                <!-- All Entries Button -->
+                <button class="all-entries-btn" id="allEntriesBtn">
+                    <i class="fas fa-list"></i> View All Entries
+                </button>
             </div>
         </div>
         
         <div class="footer">
             <p>
                 <i class="fas fa-info-circle"></i> 
-                <strong>Two-way access:</strong> 1. Data appears immediately on website (from browser database) 
-                2. Export to device files for backup 3. Import files to restore data
+                <strong>Daily Updates:</strong> Both Nepali (BS) and English (AD) dates update automatically every day at midnight.
             </p>
-            <p style="margin-top: 8px; font-size: 0.8rem;">
-                <i class="fas fa-exclamation-triangle"></i> 
-                <strong>Note:</strong> Browser data may be cleared. Regularly export your data to device files for safety.
+            <p>
+                <i class="fas fa-database"></i> 
+                <strong>Local Storage:</strong> All entries are saved in your browser and available when you return.
             </p>
         </div>
     </div>
 
-    <script>
-        // Current date and selected date
-        let currentDate = new Date();
-        let selectedDate = null;
-        let entries = {}; // Will be loaded from IndexedDB
-        
-        // IndexedDB variables
-        let db;
-        const DB_NAME = 'WorkJournalDB';
-        const DB_VERSION = 1;
-        const STORE_NAME = 'workEntries';
+    <!-- Date Modal -->
+    <div class="modal-overlay" id="dateModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Date Details</h3>
+                <button class="modal-close" id="modalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-date-info">
+                    <div class="modal-date-primary" id="modalDatePrimary">Loading...</div>
+                    <div class="modal-date-secondary" id="modalDateSecondary">Loading...</div>
+                </div>
+                
+                <div class="entries-list">
+                    <h4 class="entries-title">
+                        <span>Entries for this day</span>
+                        <button class="add-entry-btn" id="showEntryFormBtn">
+                            <i class="fas fa-plus"></i> Add Entry
+                        </button>
+                    </h4>
+                    <div id="entriesContainer">
+                        <!-- Entries will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        // DOM Elements
+    <!-- All Entries Modal -->
+    <div class="modal-overlay all-entries-modal" id="allEntriesModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-list"></i> All Entries</h3>
+                <button class="modal-close" id="allEntriesClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="search-box">
+                    <input type="text" class="search-input" id="searchAllEntries" placeholder="Search entries...">
+                </div>
+                
+                <div class="filter-options">
+                    <button class="filter-btn active" data-filter="all">All Entries</button>
+                    <button class="filter-btn" data-filter="work">Work</button>
+                    <button class="filter-btn" data-filter="dream">Dream</button>
+                    <button class="filter-btn" data-filter="achievement">Achievement</button>
+                    <button class="filter-btn" data-filter="note">Note</button>
+                    <button class="filter-btn" data-filter="reminder">Reminder</button>
+                    <button class="filter-btn" data-filter="challenge">Challenge</button>
+                    <button class="filter-btn" data-filter="learning">Learning</button>
+                </div>
+                
+                <div class="all-entries-list" id="allEntriesList">
+                    <!-- All entries will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entry Form Modal -->
+    <div class="modal-overlay entry-form-modal" id="entryFormModal">
+        <div class="modal">
+            <div class="modal-header entry-form-header">
+                <h3 class="modal-title" id="entryFormTitle">Add New Entry</h3>
+                <button class="modal-close" id="entryFormClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-container">
+                    <div class="form-date-info">
+                        <div class="form-date-primary" id="formDatePrimary">Loading...</div>
+                        <div class="form-date-secondary" id="formDateSecondary">Loading...</div>
+                    </div>
+                    
+                    <form id="entryForm">
+                        <div class="form-group">
+                            <label class="form-label">Entry Type</label>
+                            <select class="form-select" id="entryType">
+                                <option value="work">Work / Task</option>
+                                <option value="dream">Dream / Goal</option>
+                                <option value="achievement">Achievement</option>
+                                <option value="note">Note / Thought</option>
+                                <option value="reminder">Reminder</option>
+                                <option value="challenge">Challenge</option>
+                                <option value="learning">Learning</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Title</label>
+                            <input type="text" class="form-input" id="entryTitle" placeholder="Enter a title for your entry" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Details</label>
+                            <textarea class="form-textarea" id="entryDetails" placeholder="Describe what you did, achieved, or thought about on this day..." required></textarea>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" id="cancelEntry">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button type="submit" class="btn btn-success" id="saveEntry">
+                                <i class="fas fa-save"></i> Save Entry
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification System -->
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // =================== COMPLETE DAILY DATE UPDATE SYSTEM ===================
+        // Global date variables
+        let TODAY = new Date(); // Real current date
+        let currentDate = new Date(TODAY); // For calendar navigation
+        let selectedDate = null; // Currently selected date
+        let currentEntryId = null; // Currently editing entry ID
+        let lastUpdateTime = null; // Track when dates were last updated
+        
+        // Calendar mode
+        let calendarMode = 'english';
+        
+        // Data storage
+        let entriesData = {};
+        
+        // Entry types
+        const entryTypes = {
+            'work': { name: 'Work / Task', color: '#3949ab', icon: 'fas fa-briefcase' },
+            'dream': { name: 'Dream / Goal', color: '#9c27b0', icon: 'fas fa-cloud' },
+            'achievement': { name: 'Achievement', color: '#4caf50', icon: 'fas fa-trophy' },
+            'note': { name: 'Note / Thought', color: '#ff9800', icon: 'fas fa-sticky-note' },
+            'reminder': { name: 'Reminder', color: '#f44336', icon: 'fas fa-bell' },
+            'challenge': { name: 'Challenge', color: '#ff5722', icon: 'fas fa-exclamation-triangle' },
+            'learning': { name: 'Learning', color: '#2196f3', icon: 'fas fa-graduation-cap' }
+        };
+        
+        // Nepali months
+        const nepaliMonths = [
+            "बैशाख", "जेठ", "असार", "श्रावण", "भदौ", "असोज",
+            "कार्तिक", "मंसिर", "पुष", "माघ", "फागुन", "चैत्र"
+        ];
+        
+        const englishMonths = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        
+        const nepaliWeekdays = ["आइत", "सोम", "मंगल", "बुध", "बिही", "शुक्र", "शनि"];
+        const englishWeekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const englishWeekdaysFull = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        
+        // Nepali numerals
+        const nepaliNumerals = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+        
+        // =================== UPDATED NEPALI CALENDAR DATA (2023-2025) ===================
+        const nepaliCalendarData = {
+            // Current year 2081 BS (2024-2025 AD)
+            2081: { 
+                months: [31, 31, 32, 31, 32, 31, 30, 30, 29, 30, 29, 31], 
+                startDate: new Date(2024, 3, 13) // April 13, 2024
+            },
+            // Next year 2082 BS (2025-2026 AD)
+            2082: { 
+                months: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 29, 31], 
+                startDate: new Date(2025, 3, 14) // April 14, 2025
+            },
+            // Previous year 2080 BS (2023-2024 AD)
+            2080: { 
+                months: [31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30], 
+                startDate: new Date(2023, 3, 14) // April 14, 2023
+            },
+            // For testing: 2079 BS (2022-2023 AD)
+            2079: { 
+                months: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 29, 31], 
+                startDate: new Date(2022, 3, 14) // April 14, 2022
+            },
+            // For testing: 2078 BS (2021-2022 AD)
+            2078: { 
+                months: [31, 31, 32, 31, 32, 31, 30, 30, 29, 30, 29, 31], 
+                startDate: new Date(2021, 3, 14) // April 14, 2021
+            }
+        };
+
+        // =================== DOM ELEMENTS ===================
         const monthYearElement = document.getElementById('current-month-year');
         const calendarGridElement = document.getElementById('calendar-grid');
-        const noteDateElement = document.getElementById('note-date');
-        const contentContainer = document.getElementById('content-container');
+        const weekdaysElement = document.getElementById('weekdays');
+        const dynamicNepaliDate = document.getElementById('dynamicNepaliDate');
+        const dynamicEnglishDate = document.getElementById('dynamicEnglishDate');
+        const lastUpdateTimeElement = document.getElementById('lastUpdateTime');
         const prevMonthButton = document.getElementById('prev-month');
         const nextMonthButton = document.getElementById('next-month');
-        const exportBtn = document.getElementById('export-btn');
-        const importBtn = document.getElementById('import-btn');
-        const backupBtn = document.getElementById('backup-btn');
+        const englishDateBtn = document.getElementById('english-date-btn');
+        const nepaliDateBtn = document.getElementById('nepali-date-btn');
+        const notificationElement = document.getElementById('notification');
+        const allEntriesBtn = document.getElementById('allEntriesBtn');
         
-        // Stats elements
-        const totalDaysElement = document.getElementById('total-days');
-        const totalActivitiesElement = document.getElementById('total-activities');
-        const goalsAchievedElement = document.getElementById('goals-achieved');
-        const currentStreakElement = document.getElementById('current-streak');
-        const quickStatsElement = document.getElementById('quick-stats');
+        // Date Modal Elements
+        const dateModal = document.getElementById('dateModal');
+        const modalClose = document.getElementById('modalClose');
+        const modalDatePrimary = document.getElementById('modalDatePrimary');
+        const modalDateSecondary = document.getElementById('modalDateSecondary');
+        const entriesContainer = document.getElementById('entriesContainer');
+        const showEntryFormBtn = document.getElementById('showEntryFormBtn');
+        
+        // All Entries Modal Elements
+        const allEntriesModal = document.getElementById('allEntriesModal');
+        const allEntriesClose = document.getElementById('allEntriesClose');
+        const searchAllEntries = document.getElementById('searchAllEntries');
+        const allEntriesList = document.getElementById('allEntriesList');
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        
+        // Entry Form Modal Elements
+        const entryFormModal = document.getElementById('entryFormModal');
+        const entryFormClose = document.getElementById('entryFormClose');
+        const entryFormTitle = document.getElementById('entryFormTitle');
+        const formDatePrimary = document.getElementById('formDatePrimary');
+        const formDateSecondary = document.getElementById('formDateSecondary');
+        const entryForm = document.getElementById('entryForm');
+        const entryType = document.getElementById('entryType');
+        const entryTitle = document.getElementById('entryTitle');
+        const entryDetails = document.getElementById('entryDetails');
+        const cancelEntry = document.getElementById('cancelEntry');
+        const saveEntry = document.getElementById('saveEntry');
 
-        // Initialize IndexedDB
-        function initDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
+        // =================== UTILITY FUNCTIONS ===================
+        
+        function showNotification(message, type = 'info', duration = 3000) {
+            notificationElement.textContent = message;
+            notificationElement.className = `notification ${type}`;
+            notificationElement.style.display = 'block';
+            
+            setTimeout(() => {
+                notificationElement.style.display = 'none';
+            }, duration);
+        }
+        
+        function toNepaliNumerals(number) {
+            return number.toString().split('').map(digit => {
+                const num = parseInt(digit);
+                return !isNaN(num) ? nepaliNumerals[num] : digit;
+            }).join('');
+        }
+        
+        function getDateKey(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        function parseDateKey(dateKey) {
+            const [year, month, day] = dateKey.split('-').map(Number);
+            return new Date(year, month - 1, day);
+        }
+
+        // =================== IMPROVED DATE CONVERSION FUNCTIONS ===================
+        
+        function getNepaliDateFromEnglish(englishDate) {
+            const englishYear = englishDate.getFullYear();
+            const englishMonth = englishDate.getMonth();
+            const englishDay = englishDate.getDate();
+            
+            // Find the Nepali year that contains this English date
+            for (let nepaliYear = 2078; nepaliYear <= 2082; nepaliYear++) {
+                const yearData = nepaliCalendarData[nepaliYear];
+                if (!yearData) continue;
                 
-                request.onerror = (event) => {
-                    console.error('IndexedDB error:', event.target.error);
-                    reject(event.target.error);
-                };
+                const startDate = new Date(yearData.startDate);
                 
-                request.onsuccess = (event) => {
-                    db = event.target.result;
-                    console.log('IndexedDB opened successfully');
-                    resolve(db);
-                };
+                // Calculate total days in this Nepali year
+                let totalDays = 0;
+                yearData.months.forEach(days => totalDays += days);
                 
-                request.onupgradeneeded = (event) => {
-                    db = event.target.result;
+                const endDate = new Date(startDate);
+                endDate.setDate(endDate.getDate() + totalDays);
+                
+                // Check if the English date falls within this Nepali year
+                if (englishDate >= startDate && englishDate < endDate) {
+                    const diffTime = englishDate.getTime() - startDate.getTime();
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                     
-                    // Create object store if it doesn't exist
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'date' });
-                        console.log('Object store created:', STORE_NAME);
+                    let remainingDays = diffDays;
+                    let nepaliMonth = 0;
+                    
+                    // Find which Nepali month this day falls in
+                    for (let m = 0; m < 12; m++) {
+                        const daysInMonth = yearData.months[m];
+                        if (remainingDays < daysInMonth) {
+                            nepaliMonth = m + 1;
+                            break;
+                        }
+                        remainingDays -= daysInMonth;
                     }
-                };
-            });
+                    
+                    const nepaliDay = remainingDays + 1;
+                    
+                    return {
+                        year: nepaliYear,
+                        month: nepaliMonth,
+                        day: nepaliDay
+                    };
+                }
+            }
+            
+            // If not found in the data, use approximation
+            const approximateNepaliYear = englishYear + 57;
+            return {
+                year: approximateNepaliYear,
+                month: englishMonth + 1,
+                day: englishDay
+            };
+        }
+        
+        function getEnglishDateFromNepali(nepaliYear, nepaliMonth, nepaliDay) {
+            const yearData = nepaliCalendarData[nepaliYear];
+            if (!yearData) {
+                // Use approximation if data not available
+                const approximateEnglishYear = nepaliYear - 57;
+                return new Date(approximateEnglishYear, nepaliMonth - 1, nepaliDay);
+            }
+            
+            const startDate = new Date(yearData.startDate);
+            let totalDays = 0;
+            
+            // Add days from previous months
+            for (let m = 0; m < nepaliMonth - 1; m++) {
+                totalDays += yearData.months[m];
+            }
+            
+            // Add days from current month (subtract 1 because days start from 1)
+            totalDays += (nepaliDay - 1);
+            
+            const englishDate = new Date(startDate);
+            englishDate.setDate(englishDate.getDate() + totalDays);
+            return englishDate;
+        }
+        
+        function formatNepaliDate(nepaliDate) {
+            if (!nepaliDate) return '';
+            
+            const nepaliYearStr = toNepaliNumerals(nepaliDate.year);
+            const nepaliMonthStr = nepaliMonths[nepaliDate.month - 1] || `महिना ${nepaliDate.month}`;
+            const nepaliDayStr = toNepaliNumerals(nepaliDate.day);
+            
+            return `${nepaliMonthStr} ${nepaliDayStr}, ${nepaliYearStr}`;
+        }
+        
+        function formatEnglishDate(englishDate) {
+            const weekday = englishWeekdaysFull[englishDate.getDay()];
+            const month = englishMonths[englishDate.getMonth()];
+            const day = englishDate.getDate();
+            const year = englishDate.getFullYear();
+            
+            return `${month} ${day}, ${year}, ${weekday}`;
+        }
+        
+        function formatDateShort(date) {
+            const month = englishMonths[date.getMonth()].substring(0, 3);
+            const day = date.getDate();
+            const year = date.getFullYear();
+            return `${month} ${day}, ${year}`;
         }
 
-        // Save entries to IndexedDB
-        async function saveToIndexedDB() {
-            if (!db) await initDB();
+        // =================== REAL-TIME DAILY DATE UPDATE SYSTEM ===================
+        
+        function updateBothDates() {
+            // Get current real-time date
+            const now = new Date();
+            TODAY = new Date(now); // Store as new object
+            lastUpdateTime = now;
             
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([STORE_NAME], 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
+            // Get accurate Nepali date
+            const nepaliDate = getNepaliDateFromEnglish(TODAY);
+            
+            // Format dates
+            const nepaliFormatted = formatNepaliDate(nepaliDate);
+            const englishFormatted = formatEnglishDate(TODAY);
+            
+            // Update display elements
+            dynamicNepaliDate.textContent = nepaliFormatted;
+            dynamicEnglishDate.textContent = englishFormatted;
+            
+            // Update last update time
+            const timeString = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true 
+            });
+            lastUpdateTimeElement.innerHTML = `<i class="far fa-clock"></i> Last updated: ${timeString}`;
+            
+            // Update document title
+            document.title = `Work Journal - ${englishFormatted.split(',')[0]} (${nepaliFormatted})`;
+            
+            // Check if we need to update calendar (if showing current month)
+            updateCalendarIfNeeded();
+            
+            // Check if we need to update modals
+            updateModalsIfNeeded();
+            
+            // Check for date change (midnight)
+            checkForDateChange();
+            
+            return { nepaliFormatted, englishFormatted };
+        }
+        
+        function updateCalendarIfNeeded() {
+            // Check if calendar is showing current month
+            const currentMonth = TODAY.getMonth();
+            const currentYear = TODAY.getFullYear();
+            const displayedMonth = currentDate.getMonth();
+            const displayedYear = currentDate.getFullYear();
+            
+            if (currentMonth === displayedMonth && currentYear === displayedYear) {
+                // Re-render calendar to update today's highlight
+                renderCalendar();
+            }
+        }
+        
+        function updateModalsIfNeeded() {
+            // If today's date is selected in modal, update it
+            if (selectedDate && 
+                selectedDate.getDate() === TODAY.getDate() && 
+                selectedDate.getMonth() === TODAY.getMonth() && 
+                selectedDate.getFullYear() === TODAY.getFullYear()) {
                 
-                // Clear all existing entries
-                const clearRequest = store.clear();
+                const nepaliDate = getNepaliDateFromEnglish(TODAY);
+                const nepaliFormatted = formatNepaliDate(nepaliDate);
+                const englishFormatted = formatEnglishDate(TODAY);
                 
-                clearRequest.onsuccess = () => {
-                    // Save each date entry
-                    const dateKeys = Object.keys(entries);
-                    let saveCount = 0;
-                    
-                    if (dateKeys.length === 0) {
-                        resolve();
-                        return;
-                    }
-                    
-                    dateKeys.forEach(dateKey => {
-                        const entry = entries[dateKey];
-                        const request = store.put({
-                            date: dateKey,
-                            activities: entry.activities,
-                            lastUpdated: entry.lastUpdated || new Date().toISOString()
-                        });
-                        
-                        request.onsuccess = () => {
-                            saveCount++;
-                            if (saveCount === dateKeys.length) {
-                                console.log('All entries saved to IndexedDB');
-                                resolve();
-                            }
-                        };
-                        
-                        request.onerror = (event) => {
-                            console.error('Error saving to IndexedDB:', event.target.error);
-                            reject(event.target.error);
-                        };
+                if (dateModal.classList.contains('active')) {
+                    modalDatePrimary.textContent = englishFormatted;
+                    modalDateSecondary.textContent = nepaliFormatted;
+                }
+                
+                if (entryFormModal.classList.contains('active')) {
+                    formDatePrimary.textContent = englishFormatted;
+                    formDateSecondary.textContent = nepaliFormatted;
+                }
+            }
+        }
+        
+        function checkForDateChange() {
+            // Check if date has changed since last update
+            const storedDateKey = localStorage.getItem('lastStoredDate');
+            const currentDateKey = getDateKey(TODAY);
+            
+            if (storedDateKey !== currentDateKey) {
+                // Date has changed! Show notification
+                const yesterday = new Date(TODAY);
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayNepali = getNepaliDateFromEnglish(yesterday);
+                const yesterdayFormatted = formatNepaliDate(yesterdayNepali);
+                
+                const todayNepali = getNepaliDateFromEnglish(TODAY);
+                const todayFormatted = formatNepaliDate(todayNepali);
+                
+                showNotification(
+                    `New day! ${yesterdayFormatted} → ${todayFormatted}`,
+                    'info',
+                    5000
+                );
+                
+                // Store new date
+                localStorage.setItem('lastStoredDate', currentDateKey);
+                
+                // Force calendar refresh
+                renderCalendar();
+            }
+        }
+        
+        function startDailyDateUpdates() {
+            // Initial update
+            updateBothDates();
+            
+            // Store initial date
+            localStorage.setItem('lastStoredDate', getDateKey(TODAY));
+            
+            // Update every 10 seconds for better accuracy
+            setInterval(() => {
+                updateBothDates();
+            }, 10000); // 10 seconds
+            
+            // Set up midnight check
+            scheduleMidnightUpdate();
+            
+            // Also update when page becomes visible (user returns to tab)
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    updateBothDates();
+                }
+            });
+        }
+        
+        function scheduleMidnightUpdate() {
+            const now = new Date();
+            const millisecondsUntilMidnight = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate() + 1,
+                0, 0, 0, 0
+            ) - now;
+            
+            // Schedule update at midnight
+            setTimeout(() => {
+                updateBothDates();
+                // Then check every 30 seconds after midnight
+                setInterval(updateBothDates, 30000); // 30 seconds
+            }, millisecondsUntilMidnight);
+        }
+
+        // =================== DATA STORAGE FUNCTIONS ===================
+        
+        function loadEntries() {
+            try {
+                const savedEntries = localStorage.getItem('workJournalEntries');
+                if (savedEntries) {
+                    entriesData = JSON.parse(savedEntries);
+                } else {
+                    entriesData = {};
+                }
+            } catch (e) {
+                console.error("Error loading entries:", e);
+                entriesData = {};
+            }
+        }
+        
+        function saveEntries() {
+            try {
+                localStorage.setItem('workJournalEntries', JSON.stringify(entriesData));
+            } catch (e) {
+                console.error("Error saving entries:", e);
+                showNotification('Error saving entries', 'error');
+            }
+        }
+        
+        function getEntriesForDate(date) {
+            const dateKey = getDateKey(date);
+            return entriesData[dateKey] || [];
+        }
+        
+        function getAllEntries() {
+            const allEntries = [];
+            
+            for (const dateKey in entriesData) {
+                const date = parseDateKey(dateKey);
+                
+                entriesData[dateKey].forEach(entry => {
+                    allEntries.push({
+                        dateKey: dateKey,
+                        date: date,
+                        ...entry
                     });
-                };
-                
-                clearRequest.onerror = (event) => {
-                    console.error('Error clearing IndexedDB:', event.target.error);
-                    reject(event.target.error);
-                };
-            });
-        }
-
-        // Load entries from IndexedDB
-        async function loadFromIndexedDB() {
-            if (!db) await initDB();
+                });
+            }
             
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([STORE_NAME], 'readonly');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.getAll();
-                
-                request.onsuccess = (event) => {
-                    const loadedEntries = event.target.result;
-                    entries = {};
-                    
-                    loadedEntries.forEach(entry => {
-                        entries[entry.date] = {
-                            activities: entry.activities || [],
-                            lastUpdated: entry.lastUpdated
-                        };
-                    });
-                    
-                    console.log('Loaded entries from IndexedDB:', Object.keys(entries).length, 'days');
-                    updateStats();
-                    renderCalendar();
-                    resolve(entries);
-                };
-                
-                request.onerror = (event) => {
-                    console.error('Error loading from IndexedDB:', event.target.error);
-                    reject(event.target.error);
-                };
-            });
+            return allEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
         }
-
-        // Delete entry from IndexedDB
-        async function deleteFromIndexedDB(dateKey) {
-            if (!db) await initDB();
+        
+        function addEntryToDate(date, entry) {
+            const dateKey = getDateKey(date);
             
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([STORE_NAME], 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.delete(dateKey);
+            if (!entriesData[dateKey]) {
+                entriesData[dateKey] = [];
+            }
+            
+            entry.id = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            entry.timestamp = new Date().toISOString();
+            
+            entriesData[dateKey].push(entry);
+            saveEntries();
+            
+            return entry;
+        }
+        
+        function updateEntryForDate(date, entryId, updatedEntry) {
+            const dateKey = getDateKey(date);
+            
+            if (entriesData[dateKey]) {
+                const index = entriesData[dateKey].findIndex(entry => entry.id === entryId);
+                if (index !== -1) {
+                    updatedEntry.id = entryId;
+                    updatedEntry.timestamp = entriesData[dateKey][index].timestamp;
+                    entriesData[dateKey][index] = updatedEntry;
+                    saveEntries();
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        function deleteEntryFromDate(date, entryId) {
+            const dateKey = getDateKey(date);
+            
+            if (entriesData[dateKey]) {
+                entriesData[dateKey] = entriesData[dateKey].filter(entry => entry.id !== entryId);
                 
-                request.onsuccess = () => {
-                    console.log('Entry deleted from IndexedDB:', dateKey);
-                    resolve();
-                };
+                if (entriesData[dateKey].length === 0) {
+                    delete entriesData[dateKey];
+                }
                 
-                request.onerror = (event) => {
-                    console.error('Error deleting from IndexedDB:', event.target.error);
-                    reject(event.target.error);
-                };
-            });
+                saveEntries();
+                return true;
+            }
+            
+            return false;
+        }
+        
+        function getEntryCountForDate(date) {
+            const entries = getEntriesForDate(date);
+            return entries.length;
         }
 
-        // Export all data as JSON file to device
-        function exportToDevice() {
-            if (Object.keys(entries).length === 0) {
-                showMessage('No data to export. Add some work activities first.', 'info');
+        // =================== MODAL FUNCTIONS ===================
+        
+        function showAllEntriesModal() {
+            allEntriesModal.classList.add('active');
+            document.body.classList.add('modal-open');
+            loadAllEntries();
+        }
+        
+        function closeAllEntriesModal() {
+            allEntriesModal.classList.remove('active');
+            document.body.classList.remove('modal-open');
+            searchAllEntries.value = '';
+            
+            filterButtons.forEach(btn => {
+                if (btn.dataset.filter === 'all') {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+        
+        function loadAllEntries(filterType = 'all', searchQuery = '') {
+            const allEntries = getAllEntries();
+            allEntriesList.innerHTML = '';
+            
+            if (allEntries.length === 0) {
+                allEntriesList.innerHTML = `
+                    <div class="no-entries">
+                        <i class="fas fa-calendar-plus" style="font-size: 3rem; margin-bottom: 15px; color: #ccc;"></i>
+                        <p>No entries yet.</p>
+                        <p>Click on any date and add your first entry!</p>
+                    </div>
+                `;
                 return;
             }
             
-            const dataStr = JSON.stringify(entries, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-            
-            const currentDateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
-            const fileName = `work-journal-backup-${currentDateStr}.json`;
-            
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', fileName);
-            linkElement.click();
-            
-            showMessage('Data exported to device file successfully!', 'success');
-        }
-
-        // Import data from device file
-        function importFromDevice() {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = '.json';
-            
-            fileInput.onchange = async function(event) {
-                const file = event.target.files[0];
-                if (!file) return;
+            const filteredEntries = allEntries.filter(entry => {
+                if (filterType !== 'all' && entry.type !== filterType) {
+                    return false;
+                }
                 
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    try {
-                        const importedData = JSON.parse(e.target.result);
-                        
-                        // Validate the imported data structure
-                        if (typeof importedData === 'object' && importedData !== null) {
-                            // Ask user how to handle import
-                            if (Object.keys(entries).length > 0) {
-                                if (confirm('Merge imported data with current data? Click OK to merge, Cancel to replace.')) {
-                                    // Merge data
-                                    Object.keys(importedData).forEach(dateKey => {
-                                        if (!entries[dateKey] || !entries[dateKey].activities) {
-                                            entries[dateKey] = importedData[dateKey];
-                                        } else {
-                                            // Merge activities for existing dates
-                                            if (importedData[dateKey] && importedData[dateKey].activities) {
-                                                entries[dateKey].activities = [
-                                                    ...entries[dateKey].activities,
-                                                    ...importedData[dateKey].activities
-                                                ];
-                                            }
-                                        }
-                                    });
-                                    showMessage('Data merged successfully!', 'success');
-                                } else {
-                                    // Replace data
-                                    entries = importedData;
-                                    showMessage('Data replaced successfully!', 'success');
-                                }
-                            } else {
-                                // No existing data, just import
-                                entries = importedData;
-                                showMessage('Data imported successfully!', 'success');
-                            }
-                            
-                            // Save to IndexedDB
-                            await saveToIndexedDB();
-                            
-                            // Update UI
-                            updateStats();
-                            renderCalendar();
-                            
-                            if (selectedDate) {
-                                showSelectedDate();
-                            }
-                        } else {
-                            showMessage('Invalid file format. Please select a valid work journal file.', 'error');
-                        }
-                    } catch (error) {
-                        showMessage('Error reading file. Please make sure it\'s a valid JSON file.', 'error');
-                    }
-                };
+                if (searchQuery) {
+                    const query = searchQuery.toLowerCase();
+                    const titleMatch = entry.title.toLowerCase().includes(query);
+                    const detailsMatch = entry.details.toLowerCase().includes(query);
+                    return titleMatch || detailsMatch;
+                }
                 
-                reader.readAsText(file);
-            };
-            
-            fileInput.click();
-        }
-
-        // Backup/restore data
-        async function restoreData() {
-            if (confirm('This will restore data from IndexedDB. Continue?')) {
-                await loadFromIndexedDB();
-                showMessage('Data restored from browser database!', 'success');
-            }
-        }
-
-        // Show message
-        function showMessage(text, type = 'info') {
-            // Remove any existing message
-            const existingMsg = document.querySelector('.message-popup');
-            if (existingMsg) existingMsg.remove();
-            
-            // Create message element
-            const message = document.createElement('div');
-            message.className = `message-popup message-${type}`;
-            message.innerHTML = `
-                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
-                <span>${text}</span>
-            `;
-            
-            // Style the message
-            message.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background-color: ${type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3'};
-                color: white;
-                padding: 15px 20px;
-                border-radius: 8px;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                z-index: 1000;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-                animation: slideIn 0.3s ease;
-            `;
-            
-            document.body.appendChild(message);
-            
-            // Auto remove after 3 seconds
-            setTimeout(() => {
-                message.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => message.remove(), 300);
-            }, 3000);
-            
-            // Add CSS animations
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOut {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        // Update statistics
-        function updateStats() {
-            const entryKeys = Object.keys(entries);
-            const totalDays = entryKeys.length;
-            
-            // Calculate total activities and goals achieved
-            let totalActivities = 0;
-            let goalsAchieved = 0;
-            
-            entryKeys.forEach(dateKey => {
-                if (entries[dateKey] && entries[dateKey].activities) {
-                    totalActivities += entries[dateKey].activities.length;
-                    
-                    entries[dateKey].activities.forEach(activity => {
-                        if (activity.goalAchieved === 'yes') {
-                            goalsAchieved++;
-                        }
-                    });
-                }
+                return true;
             });
             
-            totalDaysElement.textContent = totalDays;
-            totalActivitiesElement.textContent = totalActivities;
-            goalsAchievedElement.textContent = goalsAchieved;
-            
-            // Calculate streak (consecutive days with entries)
-            let streak = 0;
-            const today = new Date();
-            const todayKey = formatDateKey(today);
-            
-            // Check if today has an entry
-            if (entries[todayKey]) {
-                streak = 1;
-                
-                // Check previous days
-                for (let i = 1; i <= 365; i++) {
-                    const prevDate = new Date(today);
-                    prevDate.setDate(prevDate.getDate() - i);
-                    const prevKey = formatDateKey(prevDate);
-                    
-                    if (entries[prevKey]) {
-                        streak++;
-                    } else {
-                        break;
-                    }
-                }
-            } else {
-                // Check if yesterday has an entry
-                const yesterday = new Date(today);
-                yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayKey = formatDateKey(yesterday);
-                
-                if (entries[yesterdayKey]) {
-                    streak = 1;
-                    
-                    // Check previous days before yesterday
-                    for (let i = 2; i <= 365; i++) {
-                        const prevDate = new Date(today);
-                        prevDate.setDate(prevDate.getDate() - i);
-                        const prevKey = formatDateKey(prevDate);
-                        
-                        if (entries[prevKey]) {
-                            streak++;
-                        } else {
-                            break;
-                        }
-                    }
-                }
+            if (filteredEntries.length === 0) {
+                allEntriesList.innerHTML = `
+                    <div class="no-entries">
+                        <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 15px; color: #ccc;"></i>
+                        <p>No entries found.</p>
+                        <p>Try a different search or filter.</p>
+                    </div>
+                `;
+                return;
             }
             
-            currentStreakElement.textContent = streak;
-            
-            // Update quick stats
-            updateQuickStats();
-        }
-
-        // Update quick stats
-        function updateQuickStats() {
-            const currentMonth = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0');
-            const thisMonthEntries = Object.keys(entries).filter(key => key.startsWith(currentMonth));
-            
-            let monthActivities = 0;
-            let monthGoals = 0;
-            
-            thisMonthEntries.forEach(key => {
-                if (entries[key] && entries[key].activities) {
-                    monthActivities += entries[key].activities.length;
-                    
-                    entries[key].activities.forEach(activity => {
-                        if (activity.goalAchieved === 'yes') {
-                            monthGoals++;
-                        }
-                    });
-                }
-            });
-            
-            quickStatsElement.innerHTML = `
-                <div class="quick-stat">
-                    <i class="fas fa-calendar-day" style="color:#3949ab"></i>
-                    <span>This Month: ${thisMonthEntries.length} days</span>
-                </div>
-                <div class="quick-stat">
-                    <i class="fas fa-tasks" style="color:#43a047"></i>
-                    <span>Activities: ${monthActivities}</span>
-                </div>
-                <div class="quick-stat">
-                    <i class="fas fa-bullseye" style="color:#ff9800"></i>
-                    <span>Goals: ${monthGoals} achieved</span>
-                </div>
-            `;
-        }
-
-        // Format date as YYYY-MM-DD for storage keys
-        function formatDateKey(date) {
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        }
-
-        // Format date for display
-        function formatDateDisplay(date) {
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            return date.toLocaleDateString('en-US', options);
-        }
-
-        // Get the first day of the month
-        function getFirstDayOfMonth(date) {
-            return new Date(date.getFullYear(), date.getMonth(), 1);
-        }
-
-        // Get the last day of the month
-        function getLastDayOfMonth(date) {
-            return new Date(date.getFullYear(), date.getMonth() + 1, 0);
-        }
-
-        // Render calendar for the current month
-        function renderCalendar() {
-            // Clear the calendar
-            calendarGridElement.innerHTML = '';
-            
-            // Update month/year display
-            const monthNames = [
-                'January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'
-            ];
-            const monthName = monthNames[currentDate.getMonth()];
-            const year = currentDate.getFullYear();
-            monthYearElement.textContent = `${monthName} ${year}`;
-            
-            // Get first day of month and last day of month
-            const firstDay = getFirstDayOfMonth(currentDate);
-            const lastDay = getLastDayOfMonth(currentDate);
-            
-            // Get day of week for first day (0 = Sunday, 6 = Saturday)
-            const firstDayOfWeek = firstDay.getDay();
-            
-            // Add empty cells for days before the first day of the month
-            for (let i = 0; i < firstDayOfWeek; i++) {
-                const emptyDay = document.createElement('div');
-                emptyDay.classList.add('calendar-day', 'other-month');
+            filteredEntries.forEach(entry => {
+                const entryElement = document.createElement('div');
+                entryElement.className = 'all-entry-item';
+                entryElement.dataset.id = entry.id;
+                entryElement.dataset.dateKey = entry.dateKey;
                 
-                // Get the date for the previous month
-                const prevDate = new Date(firstDay);
-                prevDate.setDate(prevDate.getDate() - (firstDayOfWeek - i));
-                emptyDay.textContent = prevDate.getDate();
-                emptyDay.title = formatDateDisplay(prevDate);
+                const nepaliDate = getNepaliDateFromEnglish(entry.date);
+                const entryTypeInfo = entryTypes[entry.type] || entryTypes.note;
                 
-                // Make previous month days clickable too
-                emptyDay.addEventListener('click', () => {
-                    selectDate(prevDate);
+                const entryTime = new Date(entry.timestamp);
+                const timeString = entryTime.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
                 });
                 
-                calendarGridElement.appendChild(emptyDay);
+                const dateString = calendarMode === 'english' 
+                    ? formatDateShort(entry.date)
+                    : formatNepaliDate(nepaliDate);
+                
+                const secondaryDate = calendarMode === 'english'
+                    ? formatNepaliDate(nepaliDate)
+                    : formatDateShort(entry.date);
+                
+                entryElement.innerHTML = `
+                    <div class="all-entry-date">
+                        <span><i class="far fa-calendar"></i> ${dateString}</span>
+                        <span class="all-entry-type" style="background-color: ${entryTypeInfo.color}">
+                            <i class="${entryTypeInfo.icon}"></i> ${entryTypeInfo.name}
+                        </span>
+                    </div>
+                    <div class="all-entry-title">${entry.title}</div>
+                    <div class="all-entry-preview">${entry.details.substring(0, 150)}${entry.details.length > 150 ? '...' : ''}</div>
+                    <div style="font-size: 0.8rem; color: #999; margin-top: 8px;">
+                        <i class="far fa-clock"></i> ${timeString}
+                        <span style="margin-left: 15px;">${secondaryDate}</span>
+                    </div>
+                `;
+                
+                entryElement.addEventListener('click', () => {
+                    closeAllEntriesModal();
+                    setTimeout(() => {
+                        showDateModal(entry.date);
+                        
+                        setTimeout(() => {
+                            const entryElement = document.querySelector(`.entry-item[data-id="${entry.id}"]`);
+                            if (entryElement) {
+                                entryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                entryElement.style.backgroundColor = '#e3f2fd';
+                                entryElement.style.boxShadow = '0 0 0 2px #1976d2';
+                                setTimeout(() => {
+                                    entryElement.style.backgroundColor = '';
+                                    entryElement.style.boxShadow = '';
+                                }, 2000);
+                            }
+                        }, 500);
+                    }, 300);
+                });
+                
+                allEntriesList.appendChild(entryElement);
+            });
+        }
+        
+        function showEntryFormModal(isEditMode = false, entryId = null) {
+            if (!selectedDate) {
+                showNotification('Please select a date first', 'error');
+                return;
             }
             
-            // Add cells for each day of the month
-            const today = new Date();
-            const todayKey = formatDateKey(today);
+            currentEntryId = entryId;
+            entryFormTitle.textContent = isEditMode ? 'Edit Entry' : 'Add New Entry';
+            updateFormDateDisplay();
+            resetEntryForm();
             
-            for (let day = 1; day <= lastDay.getDate(); day++) {
-                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-                const dateKey = formatDateKey(date);
+            if (isEditMode && entryId) {
+                const entries = getEntriesForDate(selectedDate);
+                const entry = entries.find(e => e.id === entryId);
+                
+                if (entry) {
+                    entryType.value = entry.type;
+                    entryTitle.value = entry.title;
+                    entryDetails.value = entry.details;
+                }
+            }
+            
+            entryFormModal.classList.add('active');
+            document.body.classList.add('modal-open');
+            
+            setTimeout(() => {
+                entryTitle.focus();
+            }, 300);
+        }
+        
+        function closeEntryFormModal() {
+            entryFormModal.classList.remove('active');
+            document.body.classList.remove('modal-open');
+            currentEntryId = null;
+            resetEntryForm();
+        }
+        
+        function resetEntryForm() {
+            entryForm.reset();
+            entryType.value = 'work';
+        }
+        
+        function updateFormDateDisplay() {
+            if (!selectedDate) return;
+            
+            const nepaliDate = getNepaliDateFromEnglish(selectedDate);
+            
+            if (calendarMode === 'english') {
+                formDatePrimary.textContent = formatEnglishDate(selectedDate);
+                formDateSecondary.textContent = formatNepaliDate(nepaliDate);
+            } else {
+                const nepaliWeekday = nepaliWeekdays[selectedDate.getDay()];
+                formDatePrimary.textContent = `${nepaliMonths[nepaliDate.month - 1]} ${toNepaliNumerals(nepaliDate.day)}, ${toNepaliNumerals(nepaliDate.year)}, ${nepaliWeekday}`;
+                
+                const weekday = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
+                formDateSecondary.textContent = `${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} (${weekday})`;
+            }
+        }
+        
+        function showDateModal(date) {
+            if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+                showNotification('Invalid date selected', 'error');
+                return;
+            }
+            
+            selectedDate = date;
+            const nepaliDate = getNepaliDateFromEnglish(date);
+            
+            if (calendarMode === 'english') {
+                modalDatePrimary.textContent = formatEnglishDate(date);
+                modalDateSecondary.textContent = formatNepaliDate(nepaliDate);
+            } else {
+                const nepaliWeekday = nepaliWeekdays[date.getDay()];
+                modalDatePrimary.textContent = `${nepaliMonths[nepaliDate.month - 1]} ${toNepaliNumerals(nepaliDate.day)}, ${toNepaliNumerals(nepaliDate.year)}, ${nepaliWeekday}`;
+                
+                const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+                modalDateSecondary.textContent = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} (${weekday})`;
+            }
+            
+            loadEntriesForModal(date);
+            dateModal.classList.add('active');
+            document.body.classList.add('modal-open');
+        }
+        
+        function closeDateModal() {
+            dateModal.classList.remove('active');
+            document.body.classList.remove('modal-open');
+            renderCalendar();
+        }
+        
+        function loadEntriesForModal(date) {
+            const entries = getEntriesForDate(date);
+            entriesContainer.innerHTML = '';
+            
+            if (entries.length === 0) {
+                entriesContainer.innerHTML = `
+                    <div class="no-entries">
+                        <i class="fas fa-calendar-plus" style="font-size: 3rem; margin-bottom: 15px; color: #ccc;"></i>
+                        <p>No entries for this date yet.</p>
+                        <p>Click "Add Entry" button to add your first entry!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            entries.forEach(entry => {
+                const entryElement = document.createElement('div');
+                entryElement.className = 'entry-item';
+                entryElement.dataset.id = entry.id;
+                
+                const entryTypeInfo = entryTypes[entry.type] || entryTypes.note;
+                entryElement.style.borderLeftColor = entryTypeInfo.color;
+                
+                const entryTime = new Date(entry.timestamp);
+                const timeString = entryTime.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+                
+                entryElement.innerHTML = `
+                    <div class="entry-item-header">
+                        <span class="entry-type" style="background-color: ${entryTypeInfo.color}">
+                            <i class="${entryTypeInfo.icon}"></i> ${entryTypeInfo.name}
+                        </span>
+                        <span class="entry-time">${timeString}</span>
+                    </div>
+                    <h4 style="margin-bottom: 8px; color: #333;">${entry.title}</h4>
+                    <div class="entry-content">${entry.details}</div>
+                    <div class="entry-actions">
+                        <button class="entry-btn edit-btn" data-action="edit" data-id="${entry.id}">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="entry-btn delete-btn" data-action="delete" data-id="${entry.id}">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                `;
+                
+                entriesContainer.appendChild(entryElement);
+            });
+            
+            document.querySelectorAll('.entry-btn[data-action="edit"]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const entryId = e.currentTarget.dataset.id;
+                    closeDateModal();
+                    setTimeout(() => {
+                        showEntryFormModal(true, entryId);
+                    }, 300);
+                });
+            });
+            
+            document.querySelectorAll('.entry-btn[data-action="delete"]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const entryId = e.currentTarget.dataset.id;
+                    if (confirm('Are you sure you want to delete this entry? This action cannot be undone.')) {
+                        const success = deleteEntryFromDate(date, entryId);
+                        
+                        if (success) {
+                            loadEntriesForModal(date);
+                            showNotification('Entry deleted successfully', 'success');
+                        } else {
+                            showNotification('Failed to delete entry', 'error');
+                        }
+                    }
+                });
+            });
+        }
+
+        // =================== CALENDAR FUNCTIONS ===================
+        
+        function toggleCalendarMode(mode) {
+            calendarMode = mode;
+            
+            englishDateBtn.classList.toggle('active', mode === 'english');
+            nepaliDateBtn.classList.toggle('active', mode === 'nepali');
+            
+            if (mode === 'nepali') {
+                weekdaysElement.innerHTML = nepaliWeekdays.map(day => `<div>${day}</div>`).join('');
+            } else {
+                weekdaysElement.innerHTML = englishWeekdays.map(day => `<div>${day}</div>`).join('');
+            }
+            
+            renderCalendar();
+        }
+        
+        function renderCalendar() {
+            calendarGridElement.innerHTML = '';
+            
+            if (calendarMode === 'english') {
+                renderEnglishCalendar();
+            } else {
+                renderNepaliCalendar();
+            }
+        }
+        
+        function renderEnglishCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            monthYearElement.textContent = `${englishMonths[month]} ${year}`;
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDay = firstDay.getDay();
+            
+            const prevMonthLastDay = new Date(year, month, 0).getDate();
+            
+            for (let i = 0; i < 42; i++) {
                 const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day';
                 
-                const dayNumber = document.createElement('div');
-                dayNumber.classList.add('day-number');
-                dayNumber.textContent = day;
+                let dayNumber;
+                let date;
                 
-                const dayStatus = document.createElement('div');
-                dayStatus.classList.add('day-status');
-                
-                dayElement.appendChild(dayNumber);
-                dayElement.appendChild(dayStatus);
-                
-                dayElement.classList.add('calendar-day', 'current-month');
-                dayElement.title = formatDateDisplay(date);
-                
-                // Check if this date has entries
-                if (entries[dateKey] && entries[dateKey].activities && entries[dateKey].activities.length > 0) {
-                    dayElement.classList.add('has-entries');
-                    const activityCount = entries[dateKey].activities.length;
-                    dayStatus.textContent = `${activityCount} activit${activityCount > 1 ? 'ies' : 'y'}`;
-                    dayElement.title = `${formatDateDisplay(date)} - ${activityCount} work activit${activityCount > 1 ? 'ies' : 'y'} logged`;
+                if (i < startDay) {
+                    dayNumber = prevMonthLastDay - startDay + i + 1;
+                    date = new Date(year, month - 1, dayNumber);
+                    dayElement.classList.add('other-month');
+                } else if (i >= startDay && i < startDay + daysInMonth) {
+                    dayNumber = i - startDay + 1;
+                    date = new Date(year, month, dayNumber);
+                    dayElement.classList.add('current-month');
+                    
+                    // Check if this is today
+                    const today = new Date();
+                    if (date.getDate() === today.getDate() && 
+                        date.getMonth() === today.getMonth() && 
+                        date.getFullYear() === today.getFullYear()) {
+                        dayElement.classList.add('today');
+                    }
+                    
+                    if (selectedDate && 
+                        date.getDate() === selectedDate.getDate() && 
+                        date.getMonth() === selectedDate.getMonth() && 
+                        date.getFullYear() === selectedDate.getFullYear()) {
+                        dayElement.classList.add('selected-day');
+                    }
                 } else {
-                    dayStatus.textContent = '';
+                    dayNumber = i - startDay - daysInMonth + 1;
+                    date = new Date(year, month + 1, dayNumber);
+                    dayElement.classList.add('other-month');
                 }
                 
-                // Check if this date is today
-                if (dateKey === todayKey) {
-                    dayElement.classList.add('today');
+                const entryCount = getEntryCountForDate(date);
+                if (entryCount > 0) {
+                    dayElement.classList.add('has-entries');
                 }
                 
-                // Check if this date is selected
-                if (selectedDate && formatDateKey(selectedDate) === dateKey) {
-                    dayElement.classList.add('selected-day');
+                const nepaliDate = getNepaliDateFromEnglish(date);
+                
+                const primaryDate = document.createElement('div');
+                primaryDate.className = 'primary-date';
+                primaryDate.textContent = dayNumber;
+                
+                const secondaryDate = document.createElement('div');
+                secondaryDate.className = 'secondary-date';
+                secondaryDate.textContent = `${toNepaliNumerals(nepaliDate.day)} ${nepaliMonths[nepaliDate.month - 1]}`;
+                
+                dayElement.appendChild(primaryDate);
+                dayElement.appendChild(secondaryDate);
+                
+                if (entryCount > 0) {
+                    const entryCountElement = document.createElement('div');
+                    entryCountElement.className = 'entry-count';
+                    entryCountElement.textContent = `${entryCount}`;
+                    dayElement.appendChild(entryCountElement);
                 }
                 
-                // Add click event
                 dayElement.addEventListener('click', () => {
-                    selectDate(date);
+                    showDateModal(date);
                 });
                 
                 calendarGridElement.appendChild(dayElement);
             }
-            
-            // Calculate days after the last day of the month to complete 6 rows (42 cells)
-            const totalCells = 42; // 6 rows * 7 columns
-            const daysSoFar = firstDayOfWeek + lastDay.getDate();
-            const daysToAdd = totalCells - daysSoFar;
-            
-            // Add empty cells for days after the last day of the month
-            for (let i = 1; i <= daysToAdd; i++) {
-                const emptyDay = document.createElement('div');
-                emptyDay.classList.add('calendar-day', 'other-month');
-                
-                // Get the date for the next month
-                const nextDate = new Date(lastDay);
-                nextDate.setDate(lastDay.getDate() + i);
-                emptyDay.textContent = nextDate.getDate();
-                emptyDay.title = formatDateDisplay(nextDate);
-                
-                // Make next month days clickable too
-                emptyDay.addEventListener('click', () => {
-                    selectDate(nextDate);
-                });
-                
-                calendarGridElement.appendChild(emptyDay);
-            }
-            
-            // Update stats
-            updateStats();
         }
-
-        // Select a date
-        function selectDate(date) {
-            selectedDate = date;
-            renderCalendar();
-            showSelectedDate();
-        }
-
-        // Show selected date content
-        function showSelectedDate() {
-            const dateKey = formatDateKey(selectedDate);
-            const dateDisplay = formatDateDisplay(selectedDate);
+        
+        function renderNepaliCalendar() {
+            const nepaliDate = getNepaliDateFromEnglish(currentDate);
+            let nepaliYear = nepaliDate.year;
+            let nepaliMonth = nepaliDate.month;
             
-            // Update date display
-            noteDateElement.innerHTML = `<span>${dateDisplay}</span>`;
+            monthYearElement.textContent = `${nepaliMonths[nepaliMonth - 1]} ${toNepaliNumerals(nepaliYear)}`;
             
-            // Check if we have entries for this date
-            const hasEntries = entries[dateKey] && entries[dateKey].activities && entries[dateKey].activities.length > 0;
-            
-            // Show content based on whether we have entries
-            if (hasEntries) {
-                // Show "Add Work" button + existing activities sheet
-                showDateWithEntries(dateKey, dateDisplay);
-            } else {
-                // Show only "Add Work" button
-                showDateWithoutEntries(dateDisplay);
-            }
-        }
-
-        // Show date without existing entries
-        function showDateWithoutEntries(dateDisplay) {
-            contentContainer.innerHTML = `
-                <div class="add-work-btn-container">
-                    <button class="add-work-btn" id="add-work-btn">
-                        <i class="fas fa-plus-circle"></i> Add Work Activity
-                    </button>
-                </div>
-                
-                <div class="empty-state" id="empty-sheet">
-                    <i class="fas fa-table"></i>
-                    <h3>No Activities Yet</h3>
-                    <p>Click "Add Work Activity" above to log your first work for ${dateDisplay}.</p>
-                </div>
-            `;
-            
-            // Add event listener to the button
-            document.getElementById('add-work-btn').addEventListener('click', showWorkForm);
-        }
-
-        // Show date with existing entries
-        function showDateWithEntries(dateKey, dateDisplay) {
-            contentContainer.innerHTML = `
-                <div class="add-work-btn-container">
-                    <button class="add-work-btn" id="add-work-btn">
-                        <i class="fas fa-plus-circle"></i> Add Another Work Activity
-                    </button>
-                </div>
-                
-                <div class="sheet-container">
-                    ${createSheetTable(dateKey)}
-                </div>
-            `;
-            
-            // Add event listener to the button
-            document.getElementById('add-work-btn').addEventListener('click', showWorkForm);
-        }
-
-        // Show work form
-        function showWorkForm() {
-            const dateKey = formatDateKey(selectedDate);
-            const dateDisplay = formatDateDisplay(selectedDate);
-            
-            contentContainer.innerHTML = `
-                <div class="note-date">
-                    <span>${dateDisplay} - Add Work Activity</span>
-                </div>
-                
-                <form class="entry-form" id="entry-form">
-                    <div class="form-row">
-                        <div class="form-group work-input">
-                            <label><i class="fas fa-briefcase"></i> Type of Work</label>
-                            <input type="text" id="work-type" placeholder="e.g., Meeting, Coding, Design, Research" required>
-                        </div>
-                        
-                        <div class="form-group work-input">
-                            <label><i class="fas fa-map-marker-alt"></i> Work Location</label>
-                            <input type="text" id="work-location" placeholder="e.g., Office, Home, Client Site">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fas fa-tasks"></i> Work Details / Description</label>
-                        <textarea id="work-details" placeholder="Describe the work/tasks performed..." rows="3"></textarea>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group work-input">
-                            <label><i class="fas fa-bullseye"></i> Target / Goal</label>
-                            <input type="text" id="target" placeholder="What was the goal or target?">
-                        </div>
-                        
-                        <div class="form-group work-input">
-                            <label><i class="fas fa-flag-checkered"></i> Goal Status</label>
-                            <select id="goal-status">
-                                <option value="no">Not Achieved</option>
-                                <option value="partial">Partially Achieved</option>
-                                <option value="yes">Achieved</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fas fa-sticky-note"></i> Additional Notes</label>
-                        <textarea id="notes" placeholder="Any additional notes or reflections..." rows="2"></textarea>
-                    </div>
-                    
-                    <div class="form-buttons">
-                        <button type="button" class="form-btn save-btn" id="save-activity-btn">
-                            <i class="fas fa-save"></i> Save Activity
-                        </button>
-                        <button type="button" class="form-btn cancel-btn" id="cancel-form-btn">
-                            <i class="fas fa-times"></i> Cancel
-                        </button>
-                    </div>
-                </form>
-            `;
-            
-            // Show the form
-            document.querySelector('.entry-form').style.display = 'flex';
-            
-            // Add event listeners
-            document.getElementById('save-activity-btn').addEventListener('click', saveActivity);
-            document.getElementById('cancel-form-btn').addEventListener('click', () => {
-                showSelectedDate();
-            });
-            
-            // Focus on first input
-            setTimeout(() => {
-                document.getElementById('work-type').focus();
-            }, 100);
-        }
-
-        // Create sheet table for existing entries
-        function createSheetTable(dateKey) {
-            const entry = entries[dateKey];
-            if (!entry || !entry.activities || entry.activities.length === 0) {
-                return '<div class="empty-state"><i class="fas fa-table"></i><h3>No Activities</h3><p>Add your first work activity.</p></div>';
-            }
-            
-            let tableHTML = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th class="serial-no">S.N.</th>
-                            <th class="work-type-cell">Work Type</th>
-                            <th class="work-details-cell">Details</th>
-                            <th class="target-cell">Target</th>
-                            <th class="status-cell">Status</th>
-                            <th style="width: 60px;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            entry.activities.forEach((activity, index) => {
-                // Get status badge
-                let statusBadge;
-                if (activity.goalAchieved === 'yes') {
-                    statusBadge = '<span class="goal-badge goal-achieved">Achieved</span>';
-                } else if (activity.goalAchieved === 'partial') {
-                    statusBadge = '<span class="goal-badge goal-partial">Partial</span>';
-                } else {
-                    statusBadge = '<span class="goal-badge goal-not-achieved">Not Achieved</span>';
-                }
-                
-                tableHTML += `
-                    <tr>
-                        <td class="serial-no">${index + 1}</td>
-                        <td class="work-type-cell">
-                            <span class="type-badge">${activity.workType || 'Not specified'}</span>
-                            ${activity.workLocation ? `<div style="font-size: 0.8rem; color: #666; margin-top: 3px;">${activity.workLocation}</div>` : ''}
-                        </td>
-                        <td class="work-details-cell">
-                            <div style="margin-bottom: 5px;">${activity.workDetails || 'No details'}</div>
-                            ${activity.notes ? `<div style="font-size: 0.85rem; color: #666; font-style: italic;">${activity.notes}</div>` : ''}
-                        </td>
-                        <td class="target-cell">${activity.target || 'No target'}</td>
-                        <td class="status-cell">${statusBadge}</td>
-                        <td>
-                            <button class="delete-entry-btn" data-index="${index}" title="Delete this activity">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-            
-            tableHTML += `
-                    </tbody>
-                </table>
-            `;
-            
-            // Add event listeners to delete buttons after table is created
-            setTimeout(() => {
-                document.querySelectorAll('.delete-entry-btn').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const index = parseInt(this.getAttribute('data-index'));
-                        deleteActivity(index);
-                    });
-                });
-            }, 100);
-            
-            return tableHTML;
-        }
-
-        // Save a new activity
-        async function saveActivity() {
-            if (!selectedDate) return;
-            
-            const dateKey = formatDateKey(selectedDate);
-            
-            // Get form values
-            const workType = document.getElementById('work-type').value.trim();
-            const workLocation = document.getElementById('work-location').value.trim();
-            const workDetails = document.getElementById('work-details').value.trim();
-            const target = document.getElementById('target').value.trim();
-            const goalAchieved = document.getElementById('goal-status').value;
-            const notes = document.getElementById('notes').value.trim();
-            
-            // Validate
-            if (!workType) {
-                alert('Please enter Type of Work');
-                document.getElementById('work-type').focus();
+            const yearData = nepaliCalendarData[nepaliYear];
+            if (!yearData) {
+                calendarGridElement.innerHTML = `<div class="no-entries">Data not available for this year</div>`;
                 return;
             }
             
-            // Create activity object
-            const activity = {
-                workType,
-                workLocation,
-                workDetails,
-                target,
-                goalAchieved,
-                notes,
-                timestamp: new Date().toISOString()
-            };
+            const daysInMonth = yearData.months[nepaliMonth - 1];
+            const firstDayEnglish = getEnglishDateFromNepali(nepaliYear, nepaliMonth, 1);
+            const startDay = firstDayEnglish.getDay();
             
-            // Initialize entry if it doesn't exist
-            if (!entries[dateKey]) {
-                entries[dateKey] = { activities: [] };
+            let prevNepaliYear = nepaliYear;
+            let prevNepaliMonth = nepaliMonth - 1;
+            if (prevNepaliMonth < 1) {
+                prevNepaliMonth = 12;
+                prevNepaliYear--;
             }
             
-            // Add activity to entries
-            entries[dateKey].activities.push(activity);
-            entries[dateKey].lastUpdated = new Date().toISOString();
+            const prevYearData = nepaliCalendarData[prevNepaliYear];
+            const prevMonthDays = prevYearData ? prevYearData.months[prevNepaliMonth - 1] : 30;
             
-            // Save to IndexedDB
-            await saveToIndexedDB();
-            
-            // Update UI
-            updateStats();
-            renderCalendar();
-            
-            // Show success message
-            showMessage('Activity saved successfully!', 'success');
-            
-            // Show selected date (with updated sheet)
-            showSelectedDate();
-        }
-
-        // Delete an activity
-        async function deleteActivity(index) {
-            if (!selectedDate) return;
-            
-            const dateKey = formatDateKey(selectedDate);
-            
-            if (entries[dateKey] && entries[dateKey].activities && entries[dateKey].activities[index]) {
-                if (confirm('Are you sure you want to delete this activity?')) {
-                    // Remove the activity
-                    entries[dateKey].activities.splice(index, 1);
+            for (let i = 0; i < 42; i++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day';
+                
+                let nepaliDay;
+                let englishDate;
+                
+                if (i < startDay) {
+                    nepaliDay = prevMonthDays - startDay + i + 1;
+                    englishDate = getEnglishDateFromNepali(prevNepaliYear, prevNepaliMonth, nepaliDay);
+                    dayElement.classList.add('other-month');
+                } else if (i >= startDay && i < startDay + daysInMonth) {
+                    nepaliDay = i - startDay + 1;
+                    englishDate = getEnglishDateFromNepali(nepaliYear, nepaliMonth, nepaliDay);
+                    dayElement.classList.add('current-month');
                     
-                    // If no activities left, remove the entire date entry
-                    if (entries[dateKey].activities.length === 0) {
-                        delete entries[dateKey];
-                        await deleteFromIndexedDB(dateKey);
-                    } else {
-                        // Update in IndexedDB
-                        await saveToIndexedDB();
+                    // Check if this is today
+                    const today = new Date();
+                    if (englishDate.getDate() === today.getDate() && 
+                        englishDate.getMonth() === today.getMonth() && 
+                        englishDate.getFullYear() === today.getFullYear()) {
+                        dayElement.classList.add('today');
                     }
                     
-                    // Update UI
-                    updateStats();
-                    renderCalendar();
+                    if (selectedDate && 
+                        englishDate.getDate() === selectedDate.getDate() && 
+                        englishDate.getMonth() === selectedDate.getMonth() && 
+                        englishDate.getFullYear() === selectedDate.getFullYear()) {
+                        dayElement.classList.add('selected-day');
+                    }
+                } else {
+                    nepaliDay = i - startDay - daysInMonth + 1;
+                    let nextNepaliMonth = nepaliMonth + 1;
+                    let nextNepaliYear = nepaliYear;
                     
-                    // Refresh the view
-                    showSelectedDate();
+                    if (nextNepaliMonth > 12) {
+                        nextNepaliMonth = 1;
+                        nextNepaliYear++;
+                    }
                     
-                    showMessage('Activity deleted successfully!', 'success');
+                    englishDate = getEnglishDateFromNepali(nextNepaliYear, nextNepaliMonth, nepaliDay);
+                    dayElement.classList.add('other-month');
                 }
-            }
-        }
-
-        // Navigate to previous month
-        function prevMonth() {
-            currentDate.setMonth(currentDate.getMonth() - 1);
-            renderCalendar();
-        }
-
-        // Navigate to next month
-        function nextMonth() {
-            currentDate.setMonth(currentDate.getMonth() + 1);
-            renderCalendar();
-        }
-
-        // Show welcome message
-        function showWelcomeMessage() {
-            contentContainer.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-database"></i>
-                    <h3>Work Journal - Save & View</h3>
-                    <p><strong>How this works:</strong></p>
-                    <p style="text-align: left; max-width: 400px; margin: 10px auto;">
-                        1. <strong>Data appears immediately</strong> on website<br>
-                        2. <strong>Saves to browser database</strong> (IndexedDB)<br>
-                        3. <strong>Persists between visits</strong> to same website<br>
-                        4. <strong>Export to device</strong> for backup/transfer<br>
-                        5. <strong>Import from device</strong> to restore data
-                    </p>
-                    <p style="margin-top: 15px;">Click a date on calendar to get started.</p>
-                </div>
-            `;
-        }
-
-        // Initialize the application
-        async function init() {
-            try {
-                // Initialize IndexedDB
-                await initDB();
                 
-                // Load data from IndexedDB
-                await loadFromIndexedDB();
+                const entryCount = getEntryCountForDate(englishDate);
+                if (entryCount > 0) {
+                    dayElement.classList.add('has-entries');
+                }
                 
-                // Render the calendar
-                renderCalendar();
+                const primaryDate = document.createElement('div');
+                primaryDate.className = 'primary-date';
+                primaryDate.textContent = toNepaliNumerals(nepaliDay);
                 
-                // Add event listeners
-                prevMonthButton.addEventListener('click', prevMonth);
-                nextMonthButton.addEventListener('click', nextMonth);
-                exportBtn.addEventListener('click', exportToDevice);
-                importBtn.addEventListener('click', importFromDevice);
-                backupBtn.addEventListener('click', restoreData);
+                const englishDateForDisplay = new Date(englishDate);
+                const englishMonthShort = englishMonths[englishDateForDisplay.getMonth()].substring(0, 3);
+                const englishDayNum = englishDateForDisplay.getDate();
                 
-                // Add keyboard shortcuts
-                document.addEventListener('keydown', (e) => {
-                    // Ctrl/Cmd + S to save
-                    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                        e.preventDefault();
-                        const saveBtn = document.getElementById('save-activity-btn');
-                        if (saveBtn) {
-                            saveActivity();
-                        }
-                    }
-                    
-                    // Escape to cancel
-                    if (e.key === 'Escape') {
-                        const cancelBtn = document.getElementById('cancel-form-btn');
-                        if (cancelBtn) {
-                            showSelectedDate();
-                        }
-                    }
+                const secondaryDate = document.createElement('div');
+                secondaryDate.className = 'secondary-date';
+                secondaryDate.textContent = `${englishMonthShort} ${englishDayNum}`;
+                
+                dayElement.appendChild(primaryDate);
+                dayElement.appendChild(secondaryDate);
+                
+                if (entryCount > 0) {
+                    const entryCountElement = document.createElement('div');
+                    entryCountElement.className = 'entry-count';
+                    entryCountElement.textContent = toNepaliNumerals(entryCount);
+                    dayElement.appendChild(entryCountElement);
+                }
+                
+                dayElement.addEventListener('click', () => {
+                    showDateModal(englishDate);
                 });
                 
-                // Show welcome message
-                showWelcomeMessage();
-                
-            } catch (error) {
-                console.error('Initialization error:', error);
-                showMessage('Error initializing database. Some features may not work.', 'error');
-                
-                // Fallback to memory storage if IndexedDB fails
-                entries = {};
-                renderCalendar();
-                showWelcomeMessage();
+                calendarGridElement.appendChild(dayElement);
             }
         }
-
-        // Initialize the app when the page loads
-        document.addEventListener('DOMContentLoaded', init);
+        
+        // =================== EVENT LISTENERS ===================
+        
+        function setupEventListeners() {
+            // Calendar navigation
+            prevMonthButton.addEventListener('click', () => {
+                if (calendarMode === 'english') {
+                    currentDate.setMonth(currentDate.getMonth() - 1);
+                } else {
+                    const nepaliDate = getNepaliDateFromEnglish(currentDate);
+                    let newNepaliMonth = nepaliDate.month - 1;
+                    let newNepaliYear = nepaliDate.year;
+                    
+                    if (newNepaliMonth < 1) {
+                        newNepaliMonth = 12;
+                        newNepaliYear--;
+                    }
+                    
+                    const newEnglishDate = getEnglishDateFromNepali(newNepaliYear, newNepaliMonth, 15);
+                    currentDate = newEnglishDate;
+                }
+                renderCalendar();
+            });
+            
+            nextMonthButton.addEventListener('click', () => {
+                if (calendarMode === 'english') {
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                } else {
+                    const nepaliDate = getNepaliDateFromEnglish(currentDate);
+                    let newNepaliMonth = nepaliDate.month + 1;
+                    let newNepaliYear = nepaliDate.year;
+                    
+                    if (newNepaliMonth > 12) {
+                        newNepaliMonth = 1;
+                        newNepaliYear++;
+                    }
+                    
+                    const newEnglishDate = getEnglishDateFromNepali(newNepaliYear, newNepaliMonth, 15);
+                    currentDate = newEnglishDate;
+                }
+                renderCalendar();
+            });
+            
+            // Date toggle buttons
+            englishDateBtn.addEventListener('click', () => toggleCalendarMode('english'));
+            nepaliDateBtn.addEventListener('click', () => toggleCalendarMode('nepali'));
+            
+            // All entries button
+            allEntriesBtn.addEventListener('click', showAllEntriesModal);
+            
+            // Modal close buttons
+            modalClose.addEventListener('click', closeDateModal);
+            allEntriesClose.addEventListener('click', closeAllEntriesModal);
+            entryFormClose.addEventListener('click', closeEntryFormModal);
+            cancelEntry.addEventListener('click', closeEntryFormModal);
+            
+            // Close modals on overlay click
+            document.querySelectorAll('.modal-overlay').forEach(overlay => {
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        closeDateModal();
+                        closeAllEntriesModal();
+                        closeEntryFormModal();
+                    }
+                });
+            });
+            
+            // Show entry form
+            showEntryFormBtn.addEventListener('click', () => {
+                closeDateModal();
+                setTimeout(() => {
+                    showEntryFormModal(false, null);
+                }, 300);
+            });
+            
+            // Handle entry form submission
+            entryForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                if (!selectedDate) {
+                    showNotification('Please select a date first', 'error');
+                    return;
+                }
+                
+                const entryData = {
+                    type: entryType.value,
+                    title: entryTitle.value.trim(),
+                    details: entryDetails.value.trim()
+                };
+                
+                if (!entryData.title || !entryData.details) {
+                    showNotification('Please fill in both title and details', 'error');
+                    return;
+                }
+                
+                if (currentEntryId) {
+                    // Update existing entry
+                    const success = updateEntryForDate(selectedDate, currentEntryId, entryData);
+                    
+                    if (success) {
+                        showNotification('Entry updated successfully', 'success');
+                        closeEntryFormModal();
+                        setTimeout(() => {
+                            showDateModal(selectedDate);
+                        }, 300);
+                    } else {
+                        showNotification('Failed to update entry', 'error');
+                    }
+                } else {
+                    // Add new entry
+                    addEntryToDate(selectedDate, entryData);
+                    showNotification('Entry added successfully', 'success');
+                    closeEntryFormModal();
+                    setTimeout(() => {
+                        showDateModal(selectedDate);
+                    }, 300);
+                }
+            });
+            
+            // Search in all entries modal
+            searchAllEntries.addEventListener('input', (e) => {
+                const query = e.target.value;
+                const activeFilter = document.querySelector('.filter-btn.active');
+                const filterType = activeFilter ? activeFilter.dataset.filter : 'all';
+                loadAllEntries(filterType, query);
+            });
+            
+            // Filter buttons in all entries modal
+            filterButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    
+                    const filterType = button.dataset.filter;
+                    const searchQuery = searchAllEntries.value;
+                    loadAllEntries(filterType, searchQuery);
+                });
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeDateModal();
+                    closeAllEntriesModal();
+                    closeEntryFormModal();
+                }
+                
+                if (e.key === 'ArrowLeft' && !document.querySelector('.modal-overlay.active')) {
+                    prevMonthButton.click();
+                }
+                
+                if (e.key === 'ArrowRight' && !document.querySelector('.modal-overlay.active')) {
+                    nextMonthButton.click();
+                }
+            });
+        }
+        
+        // =================== INITIALIZATION ===================
+        
+        function initializeApp() {
+            // Load saved entries
+            loadEntries();
+            
+            // Setup initial display
+            toggleCalendarMode('english');
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Start the daily date update system
+            startDailyDateUpdates();
+            
+            // Initialize TODAY with correct time
+            TODAY = new Date();
+            currentDate = new Date(TODAY);
+            
+            // Show notification if there are entries
+            const allEntries = getAllEntries();
+            if (allEntries.length > 0) {
+                setTimeout(() => {
+                    showNotification(`Welcome back! You have ${allEntries.length} journal entries.`, 'info', 4000);
+                }, 1000);
+            } else {
+                setTimeout(() => {
+                    showNotification('Click on any date to add your first journal entry!', 'info', 5000);
+                }, 1000);
+            }
+            
+            console.log('Work Journal App initialized successfully!');
+        }
+        
+        // =================== RUN ON LOAD ===================
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeApp();
+        });
     </script>
 </body>
 </html>
